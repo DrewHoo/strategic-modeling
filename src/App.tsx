@@ -74,6 +74,8 @@ export default function App() {
         </p>
       </header>
 
+      <ExplainerSection />
+
       <div className="layout">
         <section className="panel field-panel">
           <div className="panel-head">
@@ -136,7 +138,7 @@ export default function App() {
                         </span>
                         <span className="tagline">{v.strategy.tagline}</span>
                       </div>
-                      <p className="commentary">{v.commentary}</p>
+                      <p className="row-desc">{v.strategy.desc}</p>
                     </div>
                     <div className="row-stats">
                       <span className="total">{v.total}</span>
@@ -147,7 +149,10 @@ export default function App() {
 
                   {isOpen && (
                     <div className="row-body">
-                      <p className="desc">{v.strategy.desc}</p>
+                      <p className="row-verdict">
+                        <span className="row-verdict-label">For this board:</span>{' '}
+                        {v.commentary}
+                      </p>
                       <div className="h2h">
                         <div className="h2h-head">
                           <span>Opponent</span>
@@ -274,6 +279,113 @@ function MatchTimeline({ log, youName, oppName }: MatchTimelineProps) {
         <CumulativeChart log={log} />
       </div>
     </div>
+  )
+}
+
+function ExplainerSection() {
+  return (
+    <section className="explainer">
+      <h2>What's going on here</h2>
+      <p>
+        Universal Paperclips ships a small <em>Strategic Modeling</em> minigame as part of its
+        mid-game progression — and explains almost nothing about what's actually happening
+        inside it. This is a parallel implementation you can poke at: edit the payoff matrix,
+        watch the leaderboard reshuffle, and see <em>why</em> each strategy wins or loses for a
+        given board.
+      </p>
+
+      <div className="explainer-diagrams">
+        <figure>
+          <RoundDiagram />
+          <figcaption>
+            <strong>Each round, both seats choose at the same time.</strong> One picks C
+            (cooperate) or D (defect), and so does the other. Whichever cell of the matrix
+            they land on hands out points — your payoff first, your opponent&apos;s second.
+            Ten rounds make a matchup.
+          </figcaption>
+        </figure>
+        <figure>
+          <RoundRobinDiagram />
+          <figcaption>
+            <strong>A tournament is a round-robin.</strong> Every strategy plays every other
+            (and itself) twice — once as the row seat, once as the column seat. Eight
+            strategies = 64 matchups, 640 rounds total. The dark squares are self-matches.
+          </figcaption>
+        </figure>
+      </div>
+
+      <p>
+        Strategies differ in <em>what they pay attention to</em>.{' '}
+        <strong>A100</strong> always cooperates, <strong>B100</strong> always defects, and{' '}
+        <strong>RANDOM</strong> coin-flips — none of them look at the matrix or the opponent.{' '}
+        <strong>GREEDY</strong>, <strong>GENEROUS</strong>, and <strong>MINIMAX</strong> pick
+        a stance based on which cell of the matrix is largest and hold it.{' '}
+        <strong>TIT FOR TAT</strong> and <strong>BEAT LAST</strong> respond to what their
+        opponent did the previous round. Edit a cell of the matrix and you&apos;ll see which
+        of those approaches was the right one for that particular board.
+      </p>
+    </section>
+  )
+}
+
+function RoundDiagram() {
+  return (
+    <svg viewBox="0 0 220 150" className="dgram" preserveAspectRatio="xMidYMid meet" aria-hidden>
+      <text x="35" y="14" textAnchor="middle" className="dgram-label">Row picks</text>
+      <text x="185" y="14" textAnchor="middle" className="dgram-label">Col picks</text>
+
+      <rect x="20" y="20" width="30" height="22" rx="4" className="dgram-pick-c" />
+      <text x="35" y="36" textAnchor="middle" className="dgram-move c">C</text>
+      <rect x="170" y="20" width="30" height="22" rx="4" className="dgram-pick-d" />
+      <text x="185" y="36" textAnchor="middle" className="dgram-move d">D</text>
+
+      <path d="M 38 44 L 90 64" className="dgram-arrow" />
+      <path d="M 182 44 L 130 64" className="dgram-arrow" />
+
+      <g transform="translate(60, 65)">
+        <rect width="100" height="50" className="dgram-grid" rx="3" />
+        <rect x="50" y="0" width="50" height="25" className="dgram-highlight" />
+        <line x1="50" y1="0" x2="50" y2="50" className="dgram-grid-line" />
+        <line x1="0" y1="25" x2="100" y2="25" className="dgram-grid-line" />
+        <text x="25" y="17" textAnchor="middle" className="dgram-cell">3/3</text>
+        <text x="75" y="17" textAnchor="middle" className="dgram-cell on">0/5</text>
+        <text x="25" y="42" textAnchor="middle" className="dgram-cell">5/0</text>
+        <text x="75" y="42" textAnchor="middle" className="dgram-cell">1/1</text>
+      </g>
+
+      <text x="110" y="135" textAnchor="middle" className="dgram-result">
+        Row gets 0, Col gets 5
+      </text>
+    </svg>
+  )
+}
+
+function RoundRobinDiagram() {
+  const cells = []
+  for (let h = 0; h < 8; h++) {
+    for (let v = 0; v < 8; v++) {
+      const isSelf = h === v
+      cells.push(
+        <rect
+          key={`${h}-${v}`}
+          x={v * 14 + 32}
+          y={h * 14 + 28}
+          width="12"
+          height="12"
+          rx="1.5"
+          className={isSelf ? 'dgram-self' : 'dgram-match'}
+        />,
+      )
+    }
+  }
+  return (
+    <svg viewBox="0 0 160 150" className="dgram" preserveAspectRatio="xMidYMid meet" aria-hidden>
+      <text x="86" y="16" textAnchor="middle" className="dgram-label">Col seat →</text>
+      <text x="15" y="86" textAnchor="middle" className="dgram-label" transform="rotate(-90 15 86)">
+        Row seat →
+      </text>
+      {cells}
+    </svg>
   )
 }
 
