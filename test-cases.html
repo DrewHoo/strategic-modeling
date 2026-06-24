@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Strategic Modeling — test cases vs. the app</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d8d8d8;
+    --band: #c9d8ec;        /* app's predicted range */
+    --band-edge: #9db4d6;
+    --mean: #2f6fdb;        /* app's mean prediction */
+    --actual: #d6303f;      /* what the game actually did */
+    --self: #efefef;
+    --gold: #b8860b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 22px 60px;
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink); background: #fbfbfa;
+  }
+  header.page { max-width: 1100px; margin: 0 auto 22px; }
+  header.page h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.page p { margin: 4px 0; color: var(--muted); max-width: 80ch; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 22px; height: 10px; border-radius: 2px; display: inline-block; }
+  .swatch.band { background: var(--band); border: 1px solid var(--band-edge); }
+  .swatch.mean { width: 3px; height: 14px; background: var(--mean); border-radius: 1px; }
+  .swatch.actual { width: 3px; height: 14px; background: var(--actual); border-radius: 1px; }
+
+  .cases { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+  .case {
+    display: flex; align-items: stretch; gap: 22px;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.03);
+  }
+  .case-id {
+    position: absolute; margin: -8px 0 0 -8px;
+    font-size: 12px; color: var(--muted);
+  }
+
+  /* ---- board (left) ---- */
+  .board { flex: 0 0 auto; width: 196px; }
+  .board h3 { margin: 0 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .board .tag { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .board .tag b { color: var(--ink); }
+  table.payoff { border-collapse: collapse; width: 100%; text-align: center; }
+  table.payoff th { font-size: 12px; color: var(--muted); font-weight: 600; padding: 3px; }
+  table.payoff td {
+    border: 1px solid #444; padding: 7px 4px; font-variant-numeric: tabular-nums;
+    font-size: 14px; width: 50%;
+  }
+  table.payoff td.big { background: #fff7e6; font-weight: 700; }
+  .pd-badge { display: inline-block; margin-top: 8px; font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pd-badge.no { background: #fbecec; border-color: #e6b9b9; color: #a23; }
+
+  /* ---- actual results (middle) ---- */
+  .actual-col { flex: 0 0 auto; width: 200px; border-left: 1px solid var(--line); border-right: 1px solid var(--line); padding: 0 18px; }
+  .actual-col h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  ol.leaderboard { list-style: none; margin: 0; padding: 0; }
+  ol.leaderboard li { display: flex; align-items: baseline; gap: 8px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+  ol.leaderboard .rk { width: 18px; color: var(--muted); font-size: 12px; text-align: right; }
+  ol.leaderboard .nm { flex: 1; }
+  ol.leaderboard .sc { font-weight: 600; }
+  ol.leaderboard li.win .nm, ol.leaderboard li.win .sc { color: var(--gold); }
+
+  /* ---- forecast range (right) ---- */
+  .forecast { flex: 1 1 auto; min-width: 320px; }
+  .forecast h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .frow { display: grid; grid-template-columns: 96px 1fr 168px; align-items: center; gap: 10px; padding: 2px 0; }
+  .frow .fname { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track { position: relative; height: 16px; border-radius: 3px; background: linear-gradient(#fafafa,#fafafa); }
+  .track .axis { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #eee; }
+  .bar { position: absolute; top: 3px; height: 10px; background: var(--band); border: 1px solid var(--band-edge); border-radius: 3px; }
+  .mean { position: absolute; top: 0; width: 2px; height: 16px; background: var(--mean); }
+  .actual-mark { position: absolute; top: -2px; width: 2px; height: 20px; background: var(--actual); }
+  .fmeta { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+  .fmeta .miss { color: var(--actual); font-weight: 600; }
+  .fmeta .hit { color: #2a8a4a; }
+  .scaleline { grid-column: 2 / 3; display: flex; justify-content: space-between; font-size: 10px; color: #aaa; margin-top: 2px; }
+
+  footer { max-width: 1100px; margin: 28px auto 0; color: var(--muted); font-size: 12px; }
+  @media (max-width: 900px) {
+    .case { flex-direction: column; gap: 14px; }
+    .actual-col { border: none; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px 0; width: auto; }
+    .board { width: auto; max-width: 220px; }
+  }
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Strategic Modeling — captured games vs. what the app predicts</h1>
+  <p>
+    Each row is one in-game tournament. <b>Left:</b> the payoff board (largest row-player cell
+    highlighted). <b>Middle:</b> the real iOS leaderboard. <b>Right:</b> the <b>range</b> the web-app
+    engine produces over many runs — bar = min–max, blue notch = mean, red line = where the game
+    actually landed. When the red line sits outside the bar, the app missed.
+  </p>
+  <div class="legend">
+    <span><i class="swatch band"></i> app range (min–max over runs)</span>
+    <span><i class="swatch mean"></i> app mean</span>
+    <span><i class="swatch actual"></i> actual game score</span>
+  </div>
+</header>
+
+<div class="cases" id="cases"></div>
+
+<footer>
+  Engine runs live in your browser (<span id="iters"></span> tournaments per game, 10 rounds each).
+  RANDOM makes each load slightly different. Two known divergences are visible: A100 under-rated in
+  anti-coordination boards (its red line sits right of the bar), and BEAT LAST over-rated in
+  cooperation-heavy boards (mean notch right of its red line).
+</footer>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────
+// Engine — faithful port of src/engine.ts + src/strategies.ts (paperclips set)
+// ─────────────────────────────────────────────────────────────────────────
+const C = 'C', D = 'D';
+function payoff(m, me, them) {
+  if (me === C && them === C) return m.CC;
+  if (me === C && them === D) return m.CD;
+  if (me === D && them === C) return m.DC;
+  return m.DD;
+}
+function biggestForRow(m) {
+  const v = [m.CC[0], m.CD[0], m.DC[0], m.DD[0]];
+  let b = 0;
+  for (let i = 1; i < 4; i++) if (v[i] > v[b]) b = i;
+  return b;
+}
+const rowOfCell = (i) => (i < 2 ? C : D);
+const colOfCell = (i) => (i % 2 === 0 ? C : D);
+
+// Lineup order matches the in-game strats[] array.
+const STRATEGIES = [
+  { name: 'RANDOM',      play: () => (Math.random() < 0.5 ? C : D) },
+  { name: 'A100',        play: () => C },
+  { name: 'B100',        play: () => D },
+  { name: 'GREEDY',      play: (a, b, m) => rowOfCell(biggestForRow(m)) },
+  { name: 'GENEROUS',    play: (a, b, m) => colOfCell(biggestForRow(m)) },
+  { name: 'MINIMAX',     play: (a, b, m) => (colOfCell(biggestForRow(m)) === C ? D : C) },
+  { name: 'TIT FOR TAT', play: (mine, theirs) => (theirs.length === 0 ? C : theirs[theirs.length - 1]) },
+  { name: 'BEAT LAST',   play: (mine, theirs, m) => {
+      const ol = theirs.length === 0 ? C : theirs[theirs.length - 1];
+      if (ol === C) return m.CC[0] > m.DC[0] ? C : D;
+      return m.CD[0] > m.DD[0] ? C : D;
+    } },
+];
+
+function playMatch(m, a, b, rounds, iA, iB) {
+  const hA = [iA], hB = [iB];
+  let sA = 0, sB = 0, last;
+  for (let i = 0; i < rounds; i++) {
+    const mA = a.play(hA, hB, m), mB = b.play(hB, hA, m);
+    const [pa, pb] = payoff(m, mA, mB);
+    sA += pa; sB += pb; hA.push(mA); hB.push(mB); last = [mA, mB];
+  }
+  return { sA, sB, last };
+}
+
+function runTournament(strats, rounds, M) {
+  const N = strats.length;
+  const order = [];
+  for (let v = 0; v < N; v++) order.push([0, v]);
+  for (let h = 1; h < N; h++) { for (let s = 1; s < N; s++) order.push([h, s]); order.push([h, 0]); }
+  const mu = Array.from({ length: N }, () => new Array(N));
+  let lh = C, lv = C;
+  for (const [h, v] of order) {
+    const iA = lh, iB = h === v ? lh : lv;
+    const r = playMatch(M, strats[h], strats[v], rounds, iA, iB);
+    mu[h][v] = r; lh = r.last[0]; lv = r.last[1];
+  }
+  const totals = new Array(N).fill(0);
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++)
+    totals[i] += i === j ? mu[i][i].sA + mu[i][i].sB : mu[i][j].sA + mu[j][i].sB;
+  return totals;
+}
+
+function forecast(M, strats, rounds, iterations) {
+  const N = strats.length;
+  const sum = new Array(N).fill(0), min = new Array(N).fill(Infinity),
+        max = new Array(N).fill(-Infinity), win = new Array(N).fill(0);
+  for (let it = 0; it < iterations; it++) {
+    const t = runTournament(strats, rounds, M);
+    let best = -Infinity;
+    for (let i = 0; i < N; i++) { sum[i] += t[i]; if (t[i] < min[i]) min[i] = t[i]; if (t[i] > max[i]) max[i] = t[i]; if (t[i] > best) best = t[i]; }
+    const winners = []; for (let i = 0; i < N; i++) if (t[i] === best) winners.push(i);
+    for (const i of winners) win[i] += 1 / winners.length;
+  }
+  return strats.map((s, i) => ({
+    name: s.name, mean: sum[i] / iterations, min: min[i], max: max[i], winRate: win[i] / iterations,
+  }));
+}
+
+function isValidPD(m) {
+  const a = { R: m.CC[0], S: m.CD[0], T: m.DC[0], P: m.DD[0] };
+  const b = { R: m.CC[1], S: m.DC[1], T: m.CD[1], P: m.DD[1] };
+  const ok = (v) => v.T > v.R && v.R > v.P && v.P > v.S && 2 * v.R > v.T + v.S;
+  return ok(a) && ok(b);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Captured games (src/__tests__/gameResults.test.ts)
+// ─────────────────────────────────────────────────────────────────────────
+const GAMES = [
+  { id: 1, M: { CC:[10,10], CD:[4,5], DC:[5,4], DD:[10,10] }, exp: [['TIT FOR TAT',1529],['BEAT LAST',1456],['A100',1346],['GENEROUS',1294],['GREEDY',1288],['MINIMAX',1250],['B100',1235],['RANDOM',1158]] },
+  { id: 2, M: { CC:[5,5], CD:[1,1], DC:[1,1], DD:[4,4] }, exp: [['TIT FOR TAT',644],['BEAT LAST',630],['A100',618],['GENEROUS',608],['GREEDY',584],['B100',430],['RANDOM',426],['MINIMAX',424]] },
+  { id: 3, M: { CC:[1,1], CD:[7,1], DC:[1,7], DD:[4,4] }, exp: [['A100',632],['MINIMAX',586],['GREEDY',562],['BEAT LAST',480],['RANDOM',472],['TIT FOR TAT',376],['GENEROUS',367],['B100',361]] },
+  { id: 4, M: { CC:[4,4], CD:[5,2], DC:[2,5], DD:[5,5] }, exp: [['A100',734],['GREEDY',691],['MINIMAX',691],['TIT FOR TAT',672],['BEAT LAST',636],['RANDOM',612],['B100',590],['GENEROUS',578]] },
+  { id: 5, M: { CC:[8,8], CD:[8,4], DC:[4,8], DD:[10,10] }, exp: [['TIT FOR TAT',1388],['A100',1360],['GREEDY',1312],['BEAT LAST',1302],['GENEROUS',1288],['B100',1282],['MINIMAX',1280],['RANDOM',1212]] },
+  { id: 6, M: { CC:[7,7], CD:[6,5], DC:[5,6], DD:[8,8] }, exp: [['TIT FOR TAT',1159],['GREEDY',1121],['GENEROUS',1121],['B100',1118],['A100',1116],['BEAT LAST',1107],['MINIMAX',1053],['RANDOM',1035]] },
+  { id: 7, M: { CC:[3,3], CD:[2,8], DC:[8,2], DD:[1,1] }, exp: [['MINIMAX',657],['GREEDY',643],['B100',608],['RANDOM',592],['BEAT LAST',566],['A100',417],['GENEROUS',386],['TIT FOR TAT',355]] },
+  { id: 8, M: { CC:[5,5], CD:[10,7], DC:[7,10], DD:[8,8] }, exp: [['A100',1210],['B100',1194],['GENEROUS',1194],['BEAT LAST',1170],['GREEDY',1150],['MINIMAX',1135],['RANDOM',1118],['TIT FOR TAT',1024]] },
+  { id: 9, M: { CC:[8,8], CD:[3,9], DC:[9,3], DD:[3,3] }, exp: [['A100',905],['RANDOM',863],['GENEROUS',835],['MINIMAX',792],['B100',786],['GREEDY',780],['TIT FOR TAT',739],['BEAT LAST',732]] },
+  { id: 10, M: { CC:[4,4], CD:[10,5], DC:[5,10], DD:[9,9] }, exp: [['A100',1130],['B100',1084],['GREEDY',1066],['GENEROUS',1064],['BEAT LAST',1045],['RANDOM',1036],['MINIMAX',1036],['TIT FOR TAT',981]] },
+];
+
+const ITERATIONS = 500;
+const ROUNDS = 10;
+document.getElementById('iters').textContent = ITERATIONS;
+
+// cell index (0=CC,1=CD,2=DC,3=DD) of the largest row-player payoff
+function renderBoard(M) {
+  const big = biggestForRow(M);
+  const aa = M.CC[0], ab = M.CD[0], ba = M.DC[0], bb = M.DD[0];
+  const cell = (i, you, them) =>
+    `<td class="${i === big ? 'big' : ''}">${you},${them}</td>`;
+  const pd = isValidPD(M);
+  return `
+    <div class="board">
+      <h3>Payoff board</h3>
+      <div class="tag">aa <b>${aa}</b> · ab <b>${ab}</b> · ba <b>${ba}</b> · bb <b>${bb}</b></div>
+      <table class="payoff">
+        <thead><tr><th></th><th>they C</th><th>they D</th></tr></thead>
+        <tbody>
+          <tr><th>you C</th>${cell(0, aa, aa)}${cell(1, ab, ba)}</tr>
+          <tr><th>you D</th>${cell(2, ba, ab)}${cell(3, bb, bb)}</tr>
+        </tbody>
+      </table>
+      <span class="pd-badge ${pd ? '' : 'no'}">${pd ? 'Valid PD' : 'Not a PD'}</span>
+    </div>`;
+}
+
+function renderActual(exp) {
+  const items = exp.map(([name, score], i) =>
+    `<li class="${i === 0 ? 'win' : ''}"><span class="rk">${i + 1}.</span><span class="nm">${name}</span><span class="sc">${score}</span></li>`
+  ).join('');
+  return `<div class="actual-col"><h3>Actual game</h3><ol class="leaderboard">${items}</ol></div>`;
+}
+
+function renderForecast(M, exp) {
+  const fc = forecast(M, STRATEGIES, ROUNDS, ITERATIONS);
+  const fcByName = new Map(fc.map((f) => [f.name, f]));
+  const actualByName = new Map(exp.map(([n, s]) => [n, s]));
+
+  // common scale across this game: all forecast ranges + all actuals
+  let lo = Infinity, hi = -Infinity;
+  for (const f of fc) { lo = Math.min(lo, f.min); hi = Math.max(hi, f.max); }
+  for (const [, s] of exp) { lo = Math.min(lo, s); hi = Math.max(hi, s); }
+  const pad = (hi - lo) * 0.04 || 1;
+  lo -= pad; hi += pad;
+  const pct = (v) => ((v - lo) / (hi - lo)) * 100;
+
+  // rows in the actual finishing order, so eye can compare middle ↔ right
+  const rows = exp.map(([name]) => {
+    const f = fcByName.get(name);
+    const actual = actualByName.get(name);
+    const inBand = actual >= f.min && actual <= f.max;
+    const delta = Math.round(actual - f.mean);
+    const left = pct(f.min), width = Math.max(pct(f.max) - pct(f.min), 0.6);
+    return `
+      <div class="frow">
+        <div class="fname">${name}</div>
+        <div class="track">
+          <div class="axis"></div>
+          <div class="bar" style="left:${left}%;width:${width}%"></div>
+          <div class="mean" style="left:${pct(f.mean)}%"></div>
+          <div class="actual-mark" style="left:${pct(actual)}%"></div>
+        </div>
+        <div class="fmeta">
+          ${Math.round(f.mean)} <span style="color:#bbb">[${f.min}–${f.max}]</span>
+          · ${(f.winRate * 100).toFixed(0)}% win
+          · <span class="${inBand ? 'hit' : 'miss'}">${delta >= 0 ? '+' : ''}${delta}</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `<div class="forecast"><h3>App range &amp; where the game landed</h3>${rows}
+    <div class="frow"><div></div><div class="scaleline"><span>${Math.round(lo)}</span><span>${Math.round(hi)}</span></div><div></div></div>
+  </div>`;
+}
+
+const container = document.getElementById('cases');
+for (const g of GAMES) {
+  const el = document.createElement('div');
+  el.className = 'case';
+  el.innerHTML =
+    `<div class="case-id">#${g.id}</div>` +
+    renderBoard(g.M) + renderActual(g.exp) + renderForecast(g.M, g.exp);
+  container.appendChild(el);
+}
+</script>
+</body>
+</html>
