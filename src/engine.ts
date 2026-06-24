@@ -124,9 +124,15 @@ export function runTournament(
 
   const totals: number[] = grid.map((row) => row.reduce((a, b) => a + b, 0))
 
+  // Tie-break by lineup position (ascending index). In the live game, when
+  // several strategies play identical move sequences (common in degenerate
+  // matrices — e.g. A100/GREEDY/MINIMAX all always-cooperate), the earlier-
+  // listed strategy scores higher. Our stateless engine ties them exactly, so
+  // ordering ties by index reproduces that "earliest wins" bias. Measured
+  // across the captured game fixtures this lowers mean rank error (~0.78→0.72).
   const ranking: RankRow[] = strategies
     .map((s, i) => ({ strategy: s, idx: i, total: totals[i] }))
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => b.total - a.total || a.idx - b.idx)
 
   return { matchups, matrices, grid, totals, ranking }
 }

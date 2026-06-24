@@ -5,8 +5,11 @@ import { STANDARD_PAYOFFS, generatePayoffMatrix, isValidPD } from './matrix.ts'
 import type { MatchRound } from './engine.ts'
 import { runTournament } from './engine.ts'
 import { analyzeField } from './analysis.ts'
+import type { Forecast } from './predict.ts'
+import { forecast as runForecast } from './predict.ts'
 
 const DEFAULT_ROUNDS = 10
+const FORECAST_RUNS = 200
 
 export default function App() {
   const [rounds, setRounds] = useState(DEFAULT_ROUNDS)
@@ -15,6 +18,7 @@ export default function App() {
   const [watchOpponentIdx, setWatchOpponentIdx] = useState<number | null>(null)
   const [sortBy, setSortBy] = useState<'rank' | 'list'>('rank')
   const [includeAcademic, setIncludeAcademic] = useState(false)
+  const [forecastOn, setForecastOn] = useState(false)
   const [matrix, setMatrix] = useState<PayoffMatrix>(STANDARD_PAYOFFS)
 
   const activeStrategies = useMemo(
@@ -33,10 +37,23 @@ export default function App() {
     [activeStrategies, tournament],
   )
 
-  const rows =
-    sortBy === 'rank'
-      ? [...verdicts].sort((a, b) => a.rank - b.rank)
-      : verdicts
+  // Many-run forecast (opt-in). The single tournament above is one noisy draw;
+  // the forecast averages FORECAST_RUNS of them so the headline ranking reflects
+  // the distribution rather than a coin-flip. The drill-down below still shows
+  // the single representative tournament.
+  const forecast = useMemo(
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => (forecastOn ? runForecast(matrix, activeStrategies, rounds, FORECAST_RUNS) : null),
+    [forecastOn, matrix, activeStrategies, rounds, seed],
+  )
+  // Each rendered row carries the verdict (for drill-down), the rank number to
+  // show, and the forecast aggregates when forecasting is on.
+  const displayRows: { v: (typeof verdicts)[number]; rank: number; fc: Forecast | null }[] =
+    forecast
+      ? forecast.rows.map((f, i) => ({ v: verdicts[f.idx], rank: i + 1, fc: f }))
+      : (sortBy === 'rank' ? [...verdicts].sort((a, b) => a.rank - b.rank) : verdicts).map(
+          (v) => ({ v, rank: v.rank, fc: null }),
+        )
 
   const focused = focusedIdx !== null && focusedIdx < verdicts.length ? verdicts[focusedIdx] : null
   const watchOpponent =
@@ -101,6 +118,14 @@ export default function App() {
                 />
                 <span>Include academic strategies</span>
               </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={forecastOn}
+                  onChange={() => setForecastOn((v) => !v)}
+                />
+                <span>Forecast (avg {FORECAST_RUNS} runs)</span>
+              </label>
               <div className="seg">
                 <button
                   className={sortBy === 'rank' ? 'on' : ''}
@@ -121,14 +146,23 @@ export default function App() {
             </div>
           </div>
 
+          {forecast && (
+            <p className="forecast-note">
+              Ranking averaged over {forecast.iterations} tournaments. Score shows the mean with a
+              min–max band and how often each strategy topped the field. Strategies that play
+              identical moves cluster into a near-tie; the live game breaks those ties by lineup
+              position (earliest listed wins), which the ordering here mirrors.
+            </p>
+          )}
+
           <div className="strategy-list">
-            {rows.map((v) => {
+            {displayRows.map(({ v, rank, fc }) => {
               const isOpen = focusedIdx === v.idx
               return (
                 <div key={v.strategy.id} className={`row ${isOpen ? 'open' : ''}`}>
                   <button className="row-summary" onClick={() => focusStrategy(v.idx)}>
-                    <span className={`rank ${v.rank === 1 ? 'gold' : v.rank <= 3 ? 'silver' : ''}`}>
-                      #{v.rank}
+                    <span className={`rank ${rank === 1 ? 'gold' : rank <= 3 ? 'silver' : ''}`}>
+                      #{rank}
                     </span>
                     <div className="row-main">
                       <div className="row-head">
@@ -141,8 +175,19 @@ export default function App() {
                       <p className="row-desc">{v.strategy.desc}</p>
                     </div>
                     <div className="row-stats">
-                      <span className="total">{v.total}</span>
-                      <span className="avg">{v.avg.toFixed(1)} / match</span>
+                      {fc ? (
+                        <>
+                          <span className="total">{Math.round(fc.meanScore)}</span>
+                          <span className="avg">
+                            {(fc.winRate * 100).toFixed(0)}% win · {fc.minScore}–{fc.maxScore}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="total">{v.total}</span>
+                          <span className="avg">{v.avg.toFixed(1)} / match</span>
+                        </>
+                      )}
                     </div>
                     <span className="chev" aria-hidden>{isOpen ? '▾' : '▸'}</span>
                   </button>

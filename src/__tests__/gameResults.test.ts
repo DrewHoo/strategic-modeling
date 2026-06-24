@@ -130,6 +130,47 @@ const games: Game[] = [
       { name: 'TIT FOR TAT', score: 355 },
     ],
   },
+  {
+    // "Anti-coordination" / not a PD: mutual cooperate (aa=5) is the WORST
+    // symmetric outcome, mutual defect (bb=8) is fine, and the jackpot is being
+    // the lone cooperator while the opponent defects (ab=10). GREEDY/MINIMAX
+    // both collapse to always-C here, identical to A100 — yet the live game
+    // splits the three (A100 1210 > GREEDY 1150 > MINIMAX 1135) strictly by
+    // lineup position. The engine ties them; only the index tie-break recovers
+    // A100 on top. BEAT LAST is over-rated by the engine here (predicts ~#1,
+    // actually #4) — a known residual we can't reproduce without the source.
+    id: 8,
+    matrix: { CC: [5, 5], CD: [10, 7], DC: [7, 10], DD: [8, 8] },
+    expected: [
+      { name: 'A100', score: 1210 },
+      { name: 'B100', score: 1194 },
+      { name: 'GENEROUS', score: 1194 },
+      { name: 'BEAT LAST', score: 1170 },
+      { name: 'GREEDY', score: 1150 },
+      { name: 'MINIMAX', score: 1135 },
+      { name: 'RANDOM', score: 1118 },
+      { name: 'TIT FOR TAT', score: 1024 },
+    ],
+  },
+  {
+    // Near-standard PD (aa=8, ab=3, ba=9, bb=3; note P=S=3). BEAT LAST collapses
+    // to always-defect, move-for-move identical to B100 — yet scores 54 less
+    // (B100 786, BEAT LAST 732), the same lineup-position split (B100 is index
+    // 2, BEAT LAST index 7). A100 tops the field despite always cooperating,
+    // because being suckered (3) is no worse than mutual defection (3).
+    id: 9,
+    matrix: { CC: [8, 8], CD: [3, 9], DC: [9, 3], DD: [3, 3] },
+    expected: [
+      { name: 'A100', score: 905 },
+      { name: 'RANDOM', score: 863 },
+      { name: 'GENEROUS', score: 835 },
+      { name: 'MINIMAX', score: 792 },
+      { name: 'B100', score: 786 },
+      { name: 'GREEDY', score: 780 },
+      { name: 'TIT FOR TAT', score: 739 },
+      { name: 'BEAT LAST', score: 732 },
+    ],
+  },
 ]
 
 const paperclipsStrats = STRATEGIES.filter((s) => s.set === 'paperclips')

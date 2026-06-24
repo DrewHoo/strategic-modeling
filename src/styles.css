@@ -723,6 +723,17 @@ main {
   max-width: 70ch;
 }
 
+.forecast-note {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--panel-2, rgba(127, 127, 127, 0.08));
+  border-radius: 8px;
+  max-width: 80ch;
+}
+
 footer {
   margin-top: 32px;
   padding-top: 16px;

@@ -44,6 +44,16 @@ GREEDY and MINIMAX coincide in any matrix whose biggest cell is `aa` or `ba`. GE
 
 A strategy's total score is its sum across all matchups it participated in (N matchups as H plus N as V; the self-match contributes both seats to its total).
 
+## Predicting the live game: two known divergences
+
+The captured game fixtures (`src/__tests__/gameResults.test.ts`) expose two ways a single simulated tournament diverges from the in-game leaderboard:
+
+1. **Lineup-position tie-break.** In degenerate matrices several strategies collapse to the same move sequence (e.g. A100, GREEDY, and MINIMAX all always-cooperate when the largest cell is `ab`; B100 and BEAT LAST both always-defect in a standard PD). The live game does not tie them — it ranks them by their order in the lineup, **earliest listed wins** (A100 1210 > GREEDY 1150 > MINIMAX 1135 in game 8; B100 786 > BEAT LAST 732 in game 9). Our engine is stateless so it ties them exactly; `runTournament` breaks the tie by ascending index to reproduce this, which lowers mean rank error across the fixtures (~0.78 → 0.72). The most likely cause in the original is the shared mutable strategy objects whose `currentPos` carries across matchups in lineup order — not reproducible exactly without the source.
+
+2. **BEAT LAST is over-rated in cooperation-heavy / anti-PD matrices.** The engine ranks BEAT LAST higher than the live game in 6 of the 9 fixtures and never lower (worst in games 5, 6, 8). A sequential-move hypothesis was tested and rejected (it made fidelity worse). This is an unresolved residual.
+
+Because a single tournament is one noisy draw, the app offers a **Forecast** toggle ([src/predict.ts](src/predict.ts)) that averages many runs and reports each strategy's mean score, min–max band, and how often it actually topped the field — surfacing genuine ties as clusters instead of presenting a coin-flip as a confident winner.
+
 ## Academic set
 
 `TIT FOR TWO TATS`, `GRUDGER`, `PAVLOV`, `GENEROUS TFT`, and `DETECTIVE` are not in the game. They're textbook iterated-PD strategies from Axelrod's 1980 tournament and the surrounding literature, kept here as opt-in extras via the "Include academic strategies" toggle. Their definitions are standard and live in [src/strategies.ts](src/strategies.ts) alongside the paperclips set.
