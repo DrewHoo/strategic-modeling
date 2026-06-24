@@ -171,6 +171,32 @@ const games: Game[] = [
       { name: 'BEAT LAST', score: 732 },
     ],
   },
+  {
+    // Anti-coordination, same family as game 8 (largest cell is ab=10, the
+    // lone-cooperator jackpot; mutual-cooperate aa=4 is the worst symmetric
+    // outcome). Cleanest demonstration of the two divergences that remain:
+    //   1. A100 (always-C) wins outright, but the engine ranks the always-C
+    //      cohort A100/GREEDY/MINIMAX mid-pack and ~tied (~1060) — under-rating
+    //      A100 by ~70. A100 reliably tops its always-C twins in every captured
+    //      game (10/10), but note this is NOT a clean "earliest index wins"
+    //      rule: the always-D cohorts violate it (e.g. game 7 reverses,
+    //      MINIMAX > GREEDY > B100), so the underlying mechanic is order/state
+    //      dependent, not a simple position gradient.
+    //   2. BEAT LAST is over-rated (engine ~#1 at ~1111, actually #5 at 1045) —
+    //      the same cooperation-heavy-matrix residual as game 8 (+66 here).
+    id: 10,
+    matrix: { CC: [4, 4], CD: [10, 5], DC: [5, 10], DD: [9, 9] },
+    expected: [
+      { name: 'A100', score: 1130 },
+      { name: 'B100', score: 1084 },
+      { name: 'GREEDY', score: 1066 },
+      { name: 'GENEROUS', score: 1064 },
+      { name: 'BEAT LAST', score: 1045 },
+      { name: 'RANDOM', score: 1036 },
+      { name: 'MINIMAX', score: 1036 },
+      { name: 'TIT FOR TAT', score: 981 },
+    ],
+  },
 ]
 
 const paperclipsStrats = STRATEGIES.filter((s) => s.set === 'paperclips')

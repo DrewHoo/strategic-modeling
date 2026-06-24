@@ -124,12 +124,16 @@ export function runTournament(
 
   const totals: number[] = grid.map((row) => row.reduce((a, b) => a + b, 0))
 
-  // Tie-break by lineup position (ascending index). In the live game, when
-  // several strategies play identical move sequences (common in degenerate
-  // matrices — e.g. A100/GREEDY/MINIMAX all always-cooperate), the earlier-
-  // listed strategy scores higher. Our stateless engine ties them exactly, so
-  // ordering ties by index reproduces that "earliest wins" bias. Measured
-  // across the captured game fixtures this lowers mean rank error (~0.78→0.72).
+  // Tie-break by lineup position (ascending index). When several strategies
+  // play identical move sequences (common in degenerate matrices — e.g.
+  // A100/GREEDY/MINIMAX all always-cooperate), the live game does NOT tie them,
+  // and A100 (the earliest) reliably tops its always-cooperate cohort in every
+  // captured game. Our stateless engine ties them exactly, so ordering ties by
+  // index recovers that. This is a heuristic, not the true rule: the real
+  // mechanic is order/state dependent (always-defect cohorts don't follow a
+  // clean "earliest wins" gradient — game 7 even reverses it). Net it still
+  // helps — measured across the captured fixtures it lifts winner accuracy
+  // (5/10 → 7/10) and lowers mean rank error (~1.05 → ~0.93).
   const ranking: RankRow[] = strategies
     .map((s, i) => ({ strategy: s, idx: i, total: totals[i] }))
     .sort((a, b) => b.total - a.total || a.idx - b.idx)
